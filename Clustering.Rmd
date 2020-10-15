@@ -1,0 +1,600 @@
+---
+title: "Data Science Assignment 4"
+author: "Yu-Tang LIN (13423700,Tammy)"
+date: "12th April 2017"
+output: pdf_document
+---
+
+## Introduction 
+This report will provide the extra information about customers by clustering method and it will also show the prediction about the classification of new customers.
+```{r name, echo=FALSE,message=FALSE,warning=FALSE,results='hide'}
+
+# Import the dataset from Desktop
+dir <- "C:/Users/Tammy Lin/Desktop"
+setwd(dir)
+bank <- read.csv(file = 'Portuguese_Bank.csv', header = TRUE)
+
+
+# Import all the data, except for the duration 
+bank[,c(2:10,14,20)] <- lapply(bank[,c(2:10,14,20)],as.factor)
+bank[,c(1,11:13,15:19)] <- lapply(bank[,c(1,11:13,15:19)],as.numeric)
+
+```
+
+## Find the optimal value of k (the number of clustering groups)
+```{r name2, echo=FALSE,message=FALSE,warning=FALSE,results="hide"}
+# create the function for data normalisation
+datanorm <- function(x) {(x-min(x))/(max(x)-min(x))}
+
+# normalise the data
+bank2 <- bank
+bank2[,c(1,11:13,15:19)] <- lapply(bank2[,c(1,11:13,15:19)], datanorm)
+
+
+# Rename some categorical data for reducing the level of factor
+# redefine the categories of job to decrease the number of levels
+bank2$JOB <- sub("admin.","employed",bank2$JOB)
+bank2$JOB <- sub("blue-collar","employed",bank2$JOB)
+bank2$JOB <- sub("entrepreneur","employed",bank2$JOB)
+bank2$JOB <- sub("housemaid","employed",bank2$JOB)
+bank2$JOB <- sub("management","employed",bank2$JOB)
+bank2$JOB <- sub("retired","unemployed",bank2$JOB)
+bank2$JOB <- sub("self-employed","employed",bank2$JOB)
+bank2$JOB <- sub("services","employed",bank2$JOB)
+bank2$JOB <- sub("student","unemployed",bank2$JOB)
+bank2$JOB <- sub("technician","employed",bank2$JOB)
+bank2$JOB <- as.factor(bank2$JOB)
+
+# redefine the categories of education to decrease the number of levels
+bank2$EDUCATION <- sub("basic.4y","educated",bank2$EDUCATION)
+bank2$EDUCATION <- sub("basic.6y","educated",bank2$EDUCATION)
+bank2$EDUCATION <- sub("basic.9y","educated",bank2$EDUCATION)
+bank2$EDUCATION <- sub("high.school","educated",bank2$EDUCATION)
+bank2$EDUCATION <- sub("professional.course","well-educated",bank2$EDUCATION)
+bank2$EDUCATION <- sub("university.degree","well-educated",bank2$EDUCATION)
+bank2$EDUCATION <- as.factor(bank2$EDUCATION)
+
+# redefine the categories of month(quarterly) to decrease the number of levels
+bank2$MONTH <- sub("jan","Q1",bank2$MONTH)
+bank2$MONTH <- sub("feb","Q1",bank2$MONTH)
+bank2$MONTH <- sub("mar","Q1",bank2$MONTH)
+bank2$MONTH <- sub("apr","Q2",bank2$MONTH)
+bank2$MONTH <- sub("may","Q2",bank2$MONTH)
+bank2$MONTH <- sub("jun","Q2",bank2$MONTH)
+bank2$MONTH <- sub("jul","Q3",bank2$MONTH)
+bank2$MONTH <- sub("aug","Q3",bank2$MONTH)
+bank2$MONTH <- sub("sep","Q3",bank2$MONTH)
+bank2$MONTH <- sub("oct","Q4",bank2$MONTH)
+bank2$MONTH <- sub("nov","Q4",bank2$MONTH)
+bank2$MONTH <- sub("dec","Q4",bank2$MONTH)
+bank2$MONTH <- as.factor(bank2$MONTH)
+
+# remove the column from 11 to 19 as only focus on customers' information 
+bank2 <- bank2[,c(-(11:19))]
+
+# convert the factor data into numeric data except for Y
+bank2[,c(2:10)] <- lapply(bank2[,c(2:10)],as.numeric)
+
+
+# Use the Elbow method to find the optimal number of clusters
+kbank <- bank2
+kbank$Y <- NULL
+wss <- sapply(1:50, 
+        function(k){kmeans(kbank, k, nstart=10 )$tot.withinss})
+plot(1:50, wss,
+       type="b", pch = 19, frame = FALSE, 
+       xlab="Number of clusters K",
+       ylab="Total within-clusters sum of squares")
+abline(v = 5, lty =2)  # the optimal number of groups is 5
+```
+
+
+
+From the graph above, we can know the optimal number of clustering groups is five as it is the turning point that the line starts to become flat, where the straight line stands at. 
+
+
+\newpage
+## Use k-means to find the clustering of the customers' information
+```{r name3, echo=FALSE,message=FALSE,warning=FALSE,results="hide"}
+# Use the k-means method to do the clustering
+set.seed(41188)
+idx <- sample(1:dim(bank2)[1], 41188)
+sbank <- bank2[idx,]
+sbank$Y <- NULL
+kc <- kmeans(sbank,5)
+table(bank2$Y, kc$cluster)
+
+
+# name these five clustering groups
+group1 <- sbank[kc$cluster==1,]
+group2 <- sbank[kc$cluster==2,]
+group3 <- sbank[kc$cluster==3,]
+group4 <- sbank[kc$cluster==4,]
+group5 <- sbank[kc$cluster==5,]
+
+# Randomly select 0.5% of each group in order to make the graph more clear
+set.seed(35)
+idx1 <- sample(1:dim(group1)[1], 35)
+s1 <- group1[idx1,]
+
+set.seed(31)
+idx2 <- sample(1:dim(group2)[1], 31)
+s2 <- group2[idx2,]
+
+set.seed(45)
+idx3 <- sample(1:dim(group3)[1], 45)
+s3 <- group3[idx3,]
+
+set.seed(50)
+idx4 <- sample(1:dim(group4)[1], 50)
+s4 <- group4[idx4,]
+
+set.seed(43)
+idx5 <- sample(1:dim(group5)[1], 43)
+s5 <- group5[idx5,]
+
+ssbank = rbind(s1,s2,s3,s4,s5)
+
+# Plot the sample of each clusterning group
+kc2 <- kmeans(ssbank,5)
+library(cluster)
+clusplot(ssbank, kc2$cluster, color = TRUE)
+
+# denormalize the data to obtain the age of customers 
+denorm <- function(x,y){(y)*(max(x)-min(x))+min(x)}
+sbank[,1]=mapply(denorm,bank[,1],sbank[,1])
+
+# List these 5 groups again in order to see the age of customers
+group1 <- sbank[kc$cluster==1,]
+group2 <- sbank[kc$cluster==2,]
+group3 <- sbank[kc$cluster==3,]
+group4 <- sbank[kc$cluster==4,]
+group5 <- sbank[kc$cluster==5,]
+```
+
+
+
+This graph indicates the plots of these five clustering groups. In this method, we only focus on the customers' personal information, therefore, we only have ten variables in this model. In addition, as the database has too many observations, we only randomly select 0.5% sample from each group in order to have clear plotting graph. However, it seems that the customers in this data set are quite similar, so the positions shown in graph are pretty close.
+
+
+\newpage
+## Investigate the customers' information in each group
+```{r name4, echo=FALSE,message=FALSE,warning=FALSE}
+library(knitr)
+# Explore the conditions of employment in each group
+count1 <- length(which(group1[,2] == 1))
+count2 <- length(which(group1[,2] == 2)) 
+count3 <- length(which(group1[,2] == 3)) 
+g1 <- c(count1,count2,count3)  # the numbers leballed in each job level 
+
+count1 <- length(which(group2[,2] == 1))
+count2 <- length(which(group2[,2] == 2)) 
+count3 <- length(which(group2[,2] == 3)) 
+g2 <- c(count1,count2,count3)  # the numbers leballed in each job level
+
+count1 <- length(which(group3[,2] == 1))
+count2 <- length(which(group3[,2] == 2)) 
+count3 <- length(which(group3[,2] == 3)) 
+g3 <- c(count1,count2,count3)  # the numbers leballed in each job level
+
+count1 <- length(which(group4[,2] == 1))
+count2 <- length(which(group4[,2] == 2)) 
+count3 <- length(which(group4[,2] == 3)) 
+g4 <- c(count1,count2,count3)  # the numbers leballed in each job level
+
+count1 <- length(which(group5[,2] == 1))
+count2 <- length(which(group5[,2] == 2)) 
+count3 <- length(which(group5[,2] == 3)) 
+g5 <- c(count1,count2,count3)  # the numbers leballed in each job level
+
+
+job = rbind(g1,g2,g3,g4,g5)
+
+print1<-function(x){
+colnames(x)<-c("employed","unemployed","unknown")
+rownames(x)<-c("group1","group2","group3","group4","group5")
+kable(x, align = "c",caption = "JOB")
+}
+print1(job)
+
+# Explore the marital conditions in each group
+count1 <- length(which(group1[,3] == 1))
+count2 <- length(which(group1[,3] == 2)) 
+count3 <- length(which(group1[,3] == 3))
+count4 <- length(which(group1[,3] == 4))
+g1 <- c(count1,count2,count3,count4)  # the numbers leballed in each marital level 
+
+count1 <- length(which(group2[,3] == 1))
+count2 <- length(which(group2[,3] == 2)) 
+count3 <- length(which(group2[,3] == 3))
+count4 <- length(which(group2[,3] == 4))
+g2 <- c(count1,count2,count3,count4)  # the numbers leballed in each marital level 
+
+count1 <- length(which(group3[,3] == 1))
+count2 <- length(which(group3[,3] == 2)) 
+count3 <- length(which(group3[,3] == 3))
+count4 <- length(which(group3[,3] == 4))
+g3 <- c(count1,count2,count3,count4)  # the numbers leballed in each marital level 
+
+count1 <- length(which(group4[,3] == 1))
+count2 <- length(which(group4[,3] == 2)) 
+count3 <- length(which(group4[,3] == 3))
+count4 <- length(which(group4[,3] == 4))
+g4 <- c(count1,count2,count3,count4)  # the numbers leballed in each marital level 
+
+count1 <- length(which(group5[,3] == 1))
+count2 <- length(which(group5[,3] == 2)) 
+count3 <- length(which(group5[,3] == 3))
+count4 <- length(which(group5[,3] == 4))
+g5 <- c(count1,count2,count3,count4)  # the numbers leballed in each marital level 
+
+
+marriage = rbind(g1,g2,g3,g4,g5)
+print2<-function(x){
+colnames(x)<-c("divorced","married","single","unknown")
+rownames(x)<-c("group1","group2","group3","group4","group5")
+kable(x, align = "c",caption = "Marital")
+}
+print2(marriage)
+
+# Explore the educational conditions in each group
+count1 <- length(which(group1[,4] == 1))
+count2 <- length(which(group1[,4] == 2)) 
+count3 <- length(which(group1[,4] == 3))
+count4 <- length(which(group1[,4] == 4))
+g1 <- c(count1,count2,count3,count4)  # the numbers leballed in each education level 
+
+count1 <- length(which(group2[,4] == 1))
+count2 <- length(which(group2[,4] == 2)) 
+count3 <- length(which(group2[,4] == 3))
+count4 <- length(which(group2[,4] == 4))
+g2 <- c(count1,count2,count3,count4)  # the numbers leballed in each education level 
+
+count1 <- length(which(group3[,4] == 1))
+count2 <- length(which(group3[,4] == 2)) 
+count3 <- length(which(group3[,4] == 3))
+count4 <- length(which(group3[,4] == 4))
+g3 <- c(count1,count2,count3,count4)  # the numbers leballed in each education level 
+
+count1 <- length(which(group4[,4] == 1))
+count2 <- length(which(group4[,4] == 2)) 
+count3 <- length(which(group4[,4] == 3))
+count4 <- length(which(group4[,4] == 4))
+g4 <- c(count1,count2,count3,count4)  # the numbers leballed in each education level 
+
+count1 <- length(which(group5[,4] == 1))
+count2 <- length(which(group5[,4] == 2)) 
+count3 <- length(which(group5[,4] == 3))
+count4 <- length(which(group5[,4] == 4))
+g5 <- c(count1,count2,count3,count4)  # the numbers leballed in each education level 
+
+education = rbind(g1,g2,g3,g4,g5)
+print3<-function(x){
+colnames(x)<-c("educated","illiterate","unknown","well-educated")
+rownames(x)<-c("group1","group2","group3","group4","group5")
+kable(x, align = "c",caption = "Education")
+}
+print3(education)
+
+
+# Explore the conditions of default credit in each group
+count1 <- length(which(group1[,5] == 1))
+count2 <- length(which(group1[,5] == 2)) 
+count3 <- length(which(group1[,5] == 3))
+g1 <- c(count1,count2,count3)  # the numbers leballed in each level
+
+count1 <- length(which(group2[,5] == 1))
+count2 <- length(which(group2[,5] == 2)) 
+count3 <- length(which(group2[,5] == 3))
+g2 <- c(count1,count2,count3)  # the numbers leballed in each level
+
+count1 <- length(which(group3[,5] == 1))
+count2 <- length(which(group3[,5] == 2)) 
+count3 <- length(which(group3[,5] == 3))
+g3 <- c(count1,count2,count3)  # the numbers leballed in each level
+
+count1 <- length(which(group4[,5] == 1))
+count2 <- length(which(group4[,5] == 2)) 
+count3 <- length(which(group4[,5] == 3))
+g4 <- c(count1,count2,count3)  # the numbers leballed in each level
+
+count1 <- length(which(group5[,5] == 1))
+count2 <- length(which(group5[,5] == 2)) 
+count3 <- length(which(group5[,5] == 3))
+g5 <- c(count1,count2,count3)  # the numbers leballed in each level
+
+credit = rbind(g1,g2,g3,g4,g5)
+print4<-function(x){
+colnames(x)<-c("no","unknown","yes")
+rownames(x)<-c("group1","group2","group3","group4","group5")
+kable(x, align = "c", caption = "Defaultcredit")
+}
+print4(credit)
+
+
+# Explore the conditions of having home loan credit in each group
+count1 <- length(which(group1[,6] == 1))
+count2 <- length(which(group1[,6] == 2)) 
+count3 <- length(which(group1[,6] == 3))
+g1 <- c(count1,count2,count3)  # the numbers leballed in each level
+
+count1 <- length(which(group2[,6] == 1))
+count2 <- length(which(group2[,6] == 2)) 
+count3 <- length(which(group2[,6] == 3))
+g2 <- c(count1,count2,count3)  # the numbers leballed in each level
+
+count1 <- length(which(group3[,6] == 1))
+count2 <- length(which(group3[,6] == 2)) 
+count3 <- length(which(group3[,6] == 3))
+g3 <- c(count1,count2,count3)  # the numbers leballed in each level
+
+count1 <- length(which(group4[,6] == 1))
+count2 <- length(which(group4[,6] == 2)) 
+count3 <- length(which(group4[,6] == 3))
+g4 <- c(count1,count2,count3)  # the numbers leballed in each level
+
+count1 <- length(which(group5[,6] == 1))
+count2 <- length(which(group5[,6] == 2)) 
+count3 <- length(which(group5[,6] == 3))
+g5 <- c(count1,count2,count3)  # the numbers leballed in each level
+
+house = rbind(g1,g2,g3,g4,g5)
+print5<-function(x){
+colnames(x)<-c("no","unknown","yes")
+rownames(x)<-c("group1","group2","group3","group4","group5")
+kable(x, align = "c", caption = "House Loan")
+}
+print5(house)
+
+
+
+# Explore the conditions of having personal loan credit in each group
+count1 <- length(which(group1[,7] == 1))
+count2 <- length(which(group1[,7] == 2)) 
+count3 <- length(which(group1[,7] == 3))
+g1 <- c(count1,count2,count3)  # the numbers leballed in each level
+
+count1 <- length(which(group2[,7] == 1))
+count2 <- length(which(group2[,7] == 2)) 
+count3 <- length(which(group2[,7] == 3))
+g2 <- c(count1,count2,count3)  # the numbers leballed in each level
+
+count1 <- length(which(group3[,7] == 1))
+count2 <- length(which(group3[,7] == 2)) 
+count3 <- length(which(group3[,7] == 3))
+g3 <- c(count1,count2,count3)  # the numbers leballed in each level
+
+count1 <- length(which(group4[,7] == 1))
+count2 <- length(which(group4[,7] == 2)) 
+count3 <- length(which(group4[,7] == 3))
+g4 <- c(count1,count2,count3)  # the numbers leballed in each level
+
+count1 <- length(which(group5[,7] == 1))
+count2 <- length(which(group5[,7] == 2)) 
+count3 <- length(which(group5[,7] == 3))
+g5 <- c(count1,count2,count3)  # the numbers leballed in each level
+
+loan = rbind(g1,g2,g3,g4,g5)
+print6<-function(x){
+colnames(x)<-c("no","unknown","yes")
+rownames(x)<-c("group1","group2","group3","group4","group5")
+kable(x, align = "c", caption = "Personal Loan")
+}
+print6(loan)
+
+
+# Explore the types of contacting in each group
+count1 <- length(which(group1[,8] == 1))
+count2 <- length(which(group1[,8] == 2)) 
+g1 <- c(count1,count2)  # the numbers leballed in each level
+
+count1 <- length(which(group2[,8] == 1))
+count2 <- length(which(group2[,8] == 2)) 
+g2 <- c(count1,count2)  # the numbers leballed in each level
+
+count1 <- length(which(group3[,8] == 1))
+count2 <- length(which(group3[,8] == 2)) 
+g3 <- c(count1,count2)  # the numbers leballed in each level
+
+count1 <- length(which(group4[,8] == 1))
+count2 <- length(which(group4[,8] == 2)) 
+g4 <- c(count1,count2)  # the numbers leballed in each level
+
+count1 <- length(which(group5[,8] == 1))
+count2 <- length(which(group5[,8] == 2)) 
+g5 <- c(count1,count2)  # the numbers leballed in each level
+
+contact = rbind(g1,g2,g3,g4,g5)
+print7<-function(x){
+colnames(x)<-c("cellular","telephone")
+rownames(x)<-c("group1","group2","group3","group4","group5")
+kable(x, align = "c", caption = "The types of Contact")
+}
+print7(contact)
+
+
+
+# Explore the month(measured in quarter) of the last contact in each group
+count1 <- length(which(group1[,9] == 1))
+count2 <- length(which(group1[,9] == 2)) 
+count3 <- length(which(group1[,9] == 3))
+count4 <- length(which(group1[,9] == 4))
+g1 <- c(count1,count2,count3,count4) # the numbers leballed in each level
+
+count1 <- length(which(group2[,9] == 1))
+count2 <- length(which(group2[,9] == 2)) 
+count3 <- length(which(group2[,9] == 3))
+count4 <- length(which(group2[,9] == 4))
+g2 <- c(count1,count2,count3,count4) # the numbers leballed in each level
+
+count1 <- length(which(group3[,9] == 1))
+count2 <- length(which(group3[,9] == 2)) 
+count3 <- length(which(group3[,9] == 3))
+count4 <- length(which(group3[,9] == 4))
+g3 <- c(count1,count2,count3,count4) # the numbers leballed in each level
+
+count1 <- length(which(group4[,9] == 1))
+count2 <- length(which(group4[,9] == 2)) 
+count3 <- length(which(group4[,9] == 3))
+count4 <- length(which(group4[,9] == 4))
+g4 <- c(count1,count2,count3,count4) # the numbers leballed in each level
+
+count1 <- length(which(group5[,9] == 1))
+count2 <- length(which(group5[,9] == 2)) 
+count3 <- length(which(group5[,9] == 3))
+count4 <- length(which(group5[,9] == 4))
+g5 <- c(count1,count2,count3,count4) # the numbers leballed in each level
+
+month = rbind(g1,g2,g3,g4,g5)
+print8<-function(x){
+colnames(x)<-c("Q1","Q2","Q3","Q4")
+rownames(x)<-c("group1","group2","group3","group4","group5")
+kable(x, align = "c", caption = "The last contact month")
+}
+print8(month)
+
+
+
+# Explore the weekday of the last contact in each group
+count1 <- length(which(group1[,10] == 1))
+count2 <- length(which(group1[,10] == 2)) 
+count3 <- length(which(group1[,10] == 3))
+count4 <- length(which(group1[,10] == 4))
+count5 <- length(which(group1[,10] == 5))
+g1 <- c(count1,count2,count3,count4,count5) # the numbers leballed in each level
+
+count1 <- length(which(group2[,10] == 1))
+count2 <- length(which(group2[,10] == 2)) 
+count3 <- length(which(group2[,10] == 3))
+count4 <- length(which(group2[,10] == 4))
+count5 <- length(which(group2[,10] == 5))
+g2 <- c(count1,count2,count3,count4,count5) # the numbers leballed in each level
+
+count1 <- length(which(group3[,10] == 1))
+count2 <- length(which(group3[,10] == 2)) 
+count3 <- length(which(group3[,10] == 3))
+count4 <- length(which(group3[,10] == 4))
+count5 <- length(which(group3[,10] == 5))
+g3 <- c(count1,count2,count3,count4,count5) # the numbers leballed in each level
+
+count1 <- length(which(group4[,10] == 1))
+count2 <- length(which(group4[,10] == 2)) 
+count3 <- length(which(group4[,10] == 3))
+count4 <- length(which(group4[,10] == 4))
+count5 <- length(which(group4[,10] == 5))
+g4 <- c(count1,count2,count3,count4,count5) # the numbers leballed in each level
+
+count1 <- length(which(group5[,10] == 1))
+count2 <- length(which(group5[,10] == 2)) 
+count3 <- length(which(group5[,10] == 3))
+count4 <- length(which(group5[,10] == 4))
+count5 <- length(which(group5[,10] == 5))
+g5 <- c(count1,count2,count3,count4,count5) # the numbers leballed in each level
+
+day = rbind(g1,g2,g3,g4,g5)
+print9<-function(x){
+colnames(x)<-c("fri","mon","thr","tue","wed")
+rownames(x)<-c("group1","group2","group3","group4","group5")
+kable(x, align = "c", caption = "The last contact weekday")
+}
+print9(day)
+
+```
+
+
+The tables shown above are the summary of these five clustering groups. From these results, we can know that these five groups have similar conditions in the employment, martial conditions, defaultcredit, customer's personal loan, the month of the last contact and the type of contacting these customers. The noticeable differences are observed in the level of educaiton, house loan and the weekday of the last contact among the groups. 
+
+Customers in group 1, 2 and 5 are educated and those in group 3 and 4 are well-educated which implies that the majority of customers in group 3 and 4 have at least university degree. However, group 3 and 4 also contain the customers with unknow level of education, approximately 10% of whole group. As for house loan, group 3, 4 and 5 have similar customers. But, in group 1, most of customers have house loan, while in group 2, most of them do not have house loan. The last difference is the day of the last contact. Group 1, 2 and 3 have the similar customers who receive their last contact on Tuesday, Wednesday and Thursday. In group 4, the customers have their last contact on Monday, Thursday and Friday. As for customers in group 5, they have their last contact on either Monday or Friday. 
+
+
+
+
+# Make the prediction to idetify the classification of new customers
+In this section, we create several new customers to test if the model works well to classifiy the new customers. The result of test shows that the model can help us classify the possible groups for the new customers.
+
+
+```{r name5, echo=FALSE,message=FALSE,warning=FALSE,results="hide"}
+
+# Create new data frame to test the predicition  
+AGE <- c(41,48,24,31,27,52)
+JOB <- c("services","management","student","unemployed","admin.","retired")
+MARITAL <- c("married","divorced","married","single","married","single")
+EDUCATION <- c("basic.6y","high.school","university.degree","illiterate","basic.9y","basic.9y")
+DEFAULTCREDIT <- c("yes","no","no","unknown","yes","yes")
+HOUSING <- c("yes","no","unknown","no","yes","no")
+LOAN <- c("no","unknown","no","yes","no","yes")
+CONTACT <- c("telephone","telephone","cellular","telephone","cellular","telephone")
+MONTH <- c("dec","jan","mar","dec","nov","sep")
+DAY_OF_WEEK <- c("wed","thu","mon","thu","tue","fri")
+
+example <- data.frame(AGE, JOB, MARITAL, EDUCATION, DEFAULTCREDIT, HOUSING, LOAN, CONTACT, MONTH, DAY_OF_WEEK)
+example[,c(2:10)] <- lapply(example[,c(2:10)],as.factor)
+example[,1] <- as.numeric(example[,1])
+
+# adding into the original database to ensure the level of factor remains unchanged
+newbank <- bank[,c(1:10)]
+newbank = rbind(bank[,c(1:10)],example)
+
+
+# reduce the level of factor and convert into numeric data
+newbank$JOB <- sub("admin.","employed",newbank$JOB)
+newbank$JOB <- sub("blue-collar","employed",newbank$JOB)
+newbank$JOB <- sub("entrepreneur","employed",newbank$JOB)
+newbank$JOB <- sub("housemaid","employed",newbank$JOB)
+newbank$JOB <- sub("management","employed",newbank$JOB)
+newbank$JOB <- sub("retired","unemployed",newbank$JOB)
+newbank$JOB <- sub("self-employed","employed",newbank$JOB)
+newbank$JOB <- sub("services","employed",newbank$JOB)
+newbank$JOB <- sub("student","unemployed",newbank$JOB)
+newbank$JOB <- sub("technician","employed",newbank$JOB)
+newbank$JOB <- as.factor(newbank$JOB)
+
+newbank$EDUCATION <- sub("basic.4y","educated",newbank$EDUCATION)
+newbank$EDUCATION <- sub("basic.6y","educated",newbank$EDUCATION)
+newbank$EDUCATION <- sub("basic.9y","educated",newbank$EDUCATION)
+newbank$EDUCATION <- sub("high.school","educated",newbank$EDUCATION)
+newbank$EDUCATION <- sub("professional.course","well-educated",newbank$EDUCATION)
+newbank$EDUCATION <- sub("university.degree","well-educated",newbank$EDUCATION)
+newbank$EDUCATION <- as.factor(newbank$EDUCATION)
+
+newbank$MONTH <- sub("jan","Q1",newbank$MONTH)
+newbank$MONTH <- sub("feb","Q1",newbank$MONTH)
+newbank$MONTH <- sub("mar","Q1",newbank$MONTH)
+newbank$MONTH <- sub("apr","Q2",newbank$MONTH)
+newbank$MONTH <- sub("may","Q2",newbank$MONTH)
+newbank$MONTH <- sub("jun","Q2",newbank$MONTH)
+newbank$MONTH <- sub("jul","Q3",newbank$MONTH)
+newbank$MONTH <- sub("aug","Q3",newbank$MONTH)
+newbank$MONTH <- sub("sep","Q3",newbank$MONTH)
+newbank$MONTH <- sub("oct","Q4",newbank$MONTH)
+newbank$MONTH <- sub("nov","Q4",newbank$MONTH)
+newbank$MONTH <- sub("dec","Q4",newbank$MONTH)
+newbank$MONTH <- as.factor(newbank$MONTH)
+
+
+newbank[,c(2:10)] <- lapply(newbank[,c(2:10)],as.numeric)
+
+# normalise the sample data 
+newbank[,1]=datanorm(newbank[,1])
+
+# identify the classification for the sample
+sample1 <- newbank[41189,]
+sample2 <- newbank[41190,]
+sample3 <- newbank[41191,]
+sample4 <- newbank[41192,]
+sample5 <- newbank[41193,]
+sample6 <- newbank[41194,]
+
+library(clue)
+cl_predict(object = kc,newdata=sample1)
+cl_predict(object = kc,newdata=sample2)
+cl_predict(object = kc,newdata=sample3)
+cl_predict(object = kc,newdata=sample4)
+cl_predict(object = kc,newdata=sample5)
+cl_predict(object = kc,newdata=sample6)
+
+
+```
+
+## Conclusion                                                                           
+By the method of clustering the customers, we obtain the additional information about our customers. This will help the salesmen quickly identify what possible classification the customer is in order to make the correct decision or provide the pleasant service.                  

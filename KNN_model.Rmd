@@ -1,0 +1,152 @@
+---
+title: "Data Science Assignment 3"
+author: "Yu-Tang LIN (13423700,Tammy)"
+date: "29th March 2017"
+output: pdf_document
+---
+
+## Introduction
+In this report, it will show all the process of using knn classification to determine the probability that a given customer will take up the offer
+```{r name,warning=FALSE}
+
+# Import the dataset from Desktop
+dir <- "C:/Users/Tammy Lin/Desktop"
+setwd(dir)
+bank <- read.csv(file = 'Portuguese_Bank.csv', header = TRUE)
+
+# Import all the data, except for the duration 
+bank[,c(2:10,14,20)] <- lapply(bank[,c(2:10,14,20)],as.factor)
+bank[,c(1,11:13,15:19)] <- lapply(bank[,c(1,11:13,15:19)],as.numeric)
+
+```
+
+\newpage
+## Create the Model
+```{r name2,warning=FALSE}
+# create the function for data normalisation
+datanorm <- function(x) {(x-min(x))/(max(x)-min(x))}
+
+# convert the factor data into numeric data except for Y
+bank2 <- bank
+bank2[,c(2:10,14)] <- lapply(bank2[,c(2:10,14)],as.numeric)
+
+# normalise the data
+bank2[,c(1,11:13,15:19)] <- lapply(bank2[,c(1,11:13,15:19)], datanorm)
+
+# create and plot the knn model 1
+library(caret)
+indxtrain <- createDataPartition(y = bank2$Y, p = 0.9, list = F)
+train <- bank2[indxtrain,]
+test <- bank2[-indxtrain,]
+
+knnmodel <- train(Y~., data = train, method = 'knn')
+
+knnmodel
+plot(knnmodel)
+
+# See if it is a good value of k
+library(caret)
+model <- train(Y~., data=bank2, method='knn', tuneGrid=expand.grid(.k=1:25),
+    metric='Accuracy', trControl=trainControl(method='repeatedcv', number=10, repeats=5))
+
+model
+plot(model)
+confusionMatrix(model)
+
+# from the plot and cross validation, retest k=5:20
+model2 <- train(Y~., data=bank2, method='knn', tuneGrid=expand.grid(.k=5:20),  metric='Accuracy', trControl=trainControl(method='repeatedcv', number=10, repeats=5))
+
+model2
+plot(model2)
+confusionMatrix(model2)
+
+
+# create the ROC curve for the model
+library(ROCR)
+
+knnroc <- predict(model2, newdata=test, type="prob")
+knnroc <- knnroc[,2]
+predknn2 <- prediction(knnroc, test$Y)
+
+predknn <- performance(predknn2, "tpr", "fpr")
+auc <- performance(predknn2,"auc")@y.values
+auc
+
+plot(predknn, avg= "threshold", colorize=T, lwd=3, main="ROC Curve")
+
+
+```
+
+\newpage
+## Test the model
+```{r name3,warning=FALSE}
+
+# create new dataframe to test the model
+
+AGE <- c(41,48,24,31,27,52)
+JOB <- c("services","management","student","unemployed","admin.","retired")
+MARITAL <- c("married","divorced","married","single","married","single")
+EDUCATION <- c("basic.6y","high.school","university.degree","illiterate","basic.9y","basic.9y")
+DEFAULTCREDIT <- c("yes","no","no","unknown","yes","yes")
+HOUSING <- c("yes","no","unknown","no","yes","no")
+LOAN <- c("no","unknown","no","yes","no","yes")
+CONTACT <- c("telephone","telephone","cellular","telephone","cellular","telephone")
+MONTH <- c("dec","jan","mar","dec","nov","sep")
+DAY_OF_WEEK <- c("wed","thu","mon","thu","tue","fri")
+CAMPAIGN <- c(6,3,8,1,2,4)
+PDAYS <- c(2,1,999,999,3,1)
+PREVIOUS <- c(2,1,5,0,0,2)
+POUTCOME <- c("success","success","failure","nonexistent","failure","failure")
+EMP_VAR_RATE <- c(1,-0.8,1.3,-1.5,-1.7,1.2)
+CONS_PRICE_IDX <- c(92.362,93.378,93.536,92.362,92.124,94.289)
+CONS_CONF_IDX <- c(-37.8,-36.3,-42.6,-41.4,-36.4,-46.5)
+EURIBOR3M <- c(1.324,4.235,0.893,0.891,1.243,1.865)
+NR_EMPLOYED <- c(4993,5183,5039,5131,4991,5192)
+Y <- c("yes","no","no","no","yes","no")
+
+example <- data.frame(AGE, JOB, MARITAL, EDUCATION, DEFAULTCREDIT, HOUSING, LOAN, CONTACT, MONTH, DAY_OF_WEEK, CAMPAIGN, PDAYS, PREVIOUS, POUTCOME, EMP_VAR_RATE, CONS_PRICE_IDX, CONS_CONF_IDX, EURIBOR3M, NR_EMPLOYED, Y)
+example[,c(2:10,14,20)] <- lapply(example[,c(2:10,14,20)],as.factor)
+example[,c(1,11:13,15:19)] <- lapply(example[,c(1,11:13,15:19)],as.numeric)
+
+# adding into the original database to ensure the level of factor remains unchanged
+newbank <- bank
+newbank = rbind(newbank,example)
+
+# scaling and normalising the data to fit the model
+exam <- newbank
+exam[,c(2:10,14)] <- lapply(exam[,c(2:10,14)],as.numeric)
+exam[,c(1,11:13,15:19)] <- lapply(exam[,c(1,11:13,15:19)], datanorm)
+
+sample <- exam[c(41189:41194),]
+
+
+# Fit the new data into the model and find the probability
+epred <- predict(model2, newdata=sample)
+epred <- as.numeric(epred)
+testpred <- epred
+
+confusionMatrix(testpred,as.numeric(sample$Y))
+mean(testpred==as.numeric(sample$Y))
+
+
+```
+
+\newpage
+## Find the potential customers
+```{r name4,warning=FALSE}
+
+# find and list all the nearest neighbours with k=10
+library(FNN)
+ndata <- bank2[,-20]
+k <- knn.index(ndata, k=10, algorithm="cover_tree")
+
+# the customers who are more likely to take the term deposit
+customer38791 = rbind(bank2[c(38791,39003,38558,38994,38758,38996,39041,38343,40283,38841),])
+
+
+# the customers who are more likely to decline the term deposit
+customer25363 = rbind(bank2[c(25593,26476,25847,26478,25326,28585,32386,30340,30134,28380),])
+
+
+
+```

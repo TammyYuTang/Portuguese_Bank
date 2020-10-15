@@ -1,0 +1,78 @@
+---
+title: "Logistic Regression"
+author: "Yu-Tang LIN (Tammy)"
+date: "8th March 2017"
+output: pdf_document
+---
+
+# Introdction
+This report is about the prediction of a specific customer who will take up an offer based on the created model. The data used in the model are the customers' personal information including age, job, marital, education...and so on. With the assistance of the model, the management will know the certain group of customers that they should work on in order to reduce the costs and increase the profits.  
+ 
+```{r name, echo=FALSE,message=FALSE,warning=FALSE}
+
+# Import the dataset from Desktop
+dir <- "C:/Users/Tammy Lin/Desktop"
+setwd(dir)
+bank <- read.csv(file = 'Portuguese_Bank.csv', header = TRUE)
+bank[,c(2:10,14,20)] <- lapply(bank[,c(2:10,14,20)],as.factor)
+bank[,c(1,11:13,15:19)] <- lapply(bank[,c(1,11:13,15:19)],as.numeric)
+
+```
+
+
+## Model 1
+The first model uses the method of p-value to identify the significance of each variable to the result whether or not that the customer will take up an offer. The values with three stars indicate that they have great influence on the final response of the customers. But, in this model, we will use all 20 variables to create the regresson model as a base model to make a comparison with other models.  
+```{r name 2, echo=FALSE,message=FALSE,warning=FALSE, include=FALSE}
+# Model 1 variable seleciton at 1% significance level to the Y
+
+# create the regression model
+regression <- function(formula, input_data)
+{
+  glm(formula,family=binomial,data=bank)
+}
+a <- formula(Y~.)
+model <- regression(a,bank)
+summary(model)
+
+# create test and train subsets
+set.seed(123)
+indbank <- sample(2,nrow(bank),replace=TRUE,prob=c(0.9,0.1))
+
+train <- bank[indbank==1,]
+test <-  bank[indbank==2,] 
+
+# check train & test
+table(train$Y)
+table(test$Y)
+
+
+# fit the logistic regression
+model2 <- glm(Y~.,family=binomial,data=train)
+
+#predict the probability
+train$probs <- predict(model2,type="response")
+head(train$probs)
+train$predict=rep("no",nrow(train))
+train$predict[train$probs > 0.5] <- "yes"
+
+# compare the predicted values and the actual values
+table(train$predict,train$Y)
+
+# how good the model is
+mean(train$predict == train$Y)
+
+
+# the same procedure for the test data
+test$prob<-predict(model2,newdata=test,type="response")
+test$predict<-rep("no",nrow(test))
+test$predict[test$prob>0.5]<-"yes"
+table(test$predict,test$Y)
+mean(test$predict==test$Y)
+
+
+```
+
+## The discussion of the model 1
+Apparently, the customers who contact by telephone can be the factor that determines whether they will buy the term depoist or not. In addition, the main factors are social and economic context attributes, including employment variation rate, consumter price index, euribor 3 month rate and number of employees. The condition is the same as what decision tree obtained in the previous report. Although the accurancy of model 1 is up to 90%, it also contains other insignificant attibutes. Therefore the credibility is not very good. 
+
+

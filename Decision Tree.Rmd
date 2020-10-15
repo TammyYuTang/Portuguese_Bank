@@ -1,0 +1,110 @@
+---
+title: "Decision Tree"
+author: "Yu-Tang LIN (Tammy)"
+data: "24th Feb 2017"
+output: pdf_document
+---
+
+# Introduction
+The purpose of this report is to analyse the data from a Portuguese bank and predict the probabibly that can successfully sell long-term deposits by making telemarketing calls by using the decision tree model. The data are about the personal details of the customers.The model created by different packages of decision tree in R program will help the bank to calculate the success of selling long-term deposits based on the information received from the bank
+
+```{r name, echo=FALSE,message=FALSE,warning=FALSE}
+
+# Import the dataset from Desktop
+dir <- "C:/Users/Tammy Lin/Desktop"
+setwd(dir)
+rs <- read.csv(file = 'Portuguese_Bank.csv', header = TRUE)
+
+
+# Import all the data, except for the duration 
+bank <- rs
+
+bank[,c(1,11:13)]<-lapply(bank[,c(1,11:13)], as.integer)
+bank[,c(2:10,14,20)]<-lapply(bank[,c(2:10,14,20)], as.integer)
+bank[,c(15:19)]<-lapply(bank[,c(15:19)], as.integer)
+
+                            
+
+# Convert some unreasonable data into NA
+bank[, 2][bank[, 2] == "unknown"] <- NA
+bank[, 3][bank[, 3] == "unknown"] <- NA
+bank[, 4][bank[, 4] == "unknown"] <- NA
+bank[, 5][bank[, 5] == "unknown"] <- NA
+bank[, 6][bank[, 6] == "unknown"] <- NA
+bank[, 7][bank[, 7] == "unknown"] <- NA
+bank[, 12][bank[, 12] == 999] <- NA
+
+```
+
+
+## Model 1
+The first model is called rpart. It helps us build the regression model by using the two stage procedure. Therefore, the result can be simply expressed by the binary trees, which show the probabilties of success and failure. The bottom parts are denoted as the probility of the success of selling the long-term deposits by making a phone call.
+```{r name4, echo=FALSE,message=FALSE,warning=FALSE}
+
+# make the decistion tree: second model
+library(rpart)
+library(rattle)
+library(rpart.plot)
+library(RColorBrewer)
+
+rbank = rpart(Y ~ ., method="class",data = bank)
+ 
+printcp(rbank)
+fancyRpartPlot(rbank) 
+summary(rbank)
+
+# make the prediction
+prpart <- predict(rbank,type="class")
+table(prpart, bank$Y)
+confusion.matrix <- prop.table(table(prpart, bank$Y))
+result2 <- confusion.matrix[1,1]+confusion.matrix[2,2]
+
+print(result2)
+
+
+```
+## Result of model 1
+This model actually works better than the previous one. The accuracy is almost 90% and it also provides the more detailed classification tree and the importance of each variable which represents how much it can affect the result. From the result, we can see that the periodic indicators are the main factors that affects whether or not the customer should buy the long-term deposits. Indicators include employment variation rate, consumer confidence index, and euribor 3 month rate...etc.  
+
+
+## Model 2
+The second model is called party. It can create decision tree with nonparametric regression. The classification is based on the statistical stopping rules. Although its diagram looks more complicated, compared with the other two, it gives the more detailed classification and the probability of each catagory, including the number of nodes.  
+```{r name5, echo=FALSE,message=FALSE,warning=FALSE}
+
+# make the decistion tree: third model
+library(party)
+ 
+ct = ctree(Y ~., data = bank,controls=ctree_control(maxdepth=3))
+
+# simpler version of plot
+plot(ct, type="simple",           # no terminal plots
+  inner_panel=node_inner(ct,
+       abbreviate = FALSE,            # short variable names
+       pval = FALSE,                 # no p-values
+       id = FALSE),                  # no id of node
+  terminal_panel=node_terminal(ct, 
+       abbreviate = TRUE,
+       digits = 1,                   # few digits on numbers
+       fill = c("white"),            # make box white not grey
+       id = FALSE)
+   )
+ 
+#Table of prediction errors
+table(predict(ct), bank$Y)
+confusion.matrix <- prop.table(table(predict(ct), bank$Y))
+result3 <- confusion.matrix[1,1]+confusion.matrix[2,2]
+
+print(result3)
+
+ 
+# Estimated class probabilities
+tr.pred = predict(ct, newdata=bank, type="prob")
+
+
+```
+## Result of model 2
+The accuracy of this model is almost 90%, which is pretty good. From the diagram regarding the analysis, the indicator of the number of employees seems to be the first element to recognise the customers as it is also shown in the first two models. It shows that if the number of employees are greater than 5076.2, then there will lower probabilty of successfully selling the long-term deposits, which is similar to the observation seen in the first two models.  
+
+
+    
+
