@@ -8,3 +8,6 @@ Four models used in this project:
 2. Logistic Regression
 3. k-nearest neighbours
 4. Clustering
+
+Interactive Dashboard: 
+ - R shiny app
